@@ -1,5 +1,6 @@
 import unittest
-from ihoop import Strict, AbstractAttribute
+
+from ihoop import AbstractAttribute, Strict
 
 
 class TestStrict(unittest.TestCase):
@@ -29,6 +30,7 @@ class TestStrict(unittest.TestCase):
 
     def test_abstract_class_name_prefix_required(self):
         with self.assertRaises(TypeError):
+
             class Bad(Strict):
                 value: AbstractAttribute[int]
 
@@ -37,6 +39,7 @@ class TestStrict(unittest.TestCase):
             value: AbstractAttribute[int]
 
         with self.assertRaises(TypeError):
+
             class AbstractThing(_AbstractBase):
                 value: int
 
@@ -54,6 +57,7 @@ class TestStrict(unittest.TestCase):
                 self.value = v
 
         with self.assertRaises(TypeError):
+
             class SubFinal(Final):
                 pass
 
@@ -71,12 +75,14 @@ class TestStrict(unittest.TestCase):
                 self.value = v
 
         with self.assertRaises(TypeError):
+
             class BadOverride(Final):
                 def concrete(self):
                     return 2
 
     def test_abstract_attribute_value_assignment_forbidden(self):
         with self.assertRaises(TypeError):
+
             class AbstractBad(Strict):
                 attr: AbstractAttribute[int] = 1
 
