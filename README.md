@@ -10,7 +10,7 @@ Meet `ihoop`: a tiny library that turns plain Python classes into frozen, Abstra
   - Abstract classes: can be subclassed, but cannot be instantiated.  
   - Concrete classes: can be instantiated, but cannot be subclassed.  
 -Abstract attributes, not just methods: Declare with `AbstractAttribute[T]`; subclasses must supply (via type hints) a real value.
-- No dependencies: Pure Python.
+- No dependencies: pure Python.
 
 
 This package was largely ~~copied~~ inspired by [equinox](https://docs.kidger.site/equinox/)'s `strict=True` flag. For more information see https://docs.kidger.site/equinox/pattern/.
@@ -22,17 +22,14 @@ Why is it called `ihoop`? Because (i) (h)ate (o)bject (o)riented (p)rogramming ð
 ```python
 from ihoop import Strict, AbstractAttribute
 
-
 class AbstractAnimal(Strict):
     name: AbstractAttribute[str]
-
 
 class Dog(AbstractAnimal):
     name: str
 
     def __init__(self, name: str):
         self.name = name
-
 
 >>> Dog("Fido").name
 'Fido'
@@ -41,9 +38,12 @@ class Dog(AbstractAnimal):
 AttributeError: Cannot set attribute 'name' on frozen instance of Dog. strict objects are immutable after initialization.
 ```
 
+## Sharp Edges
+
+- It is important to type hint all member variables at the class level. It is very possible to bypass the checking/enforcement of `Strict` by doing things in the `__init__`.
 
 ## Roadmap
 
-- abstractclassvar: strictness for class variables.
-- dataclass testing and integration
-
+- [x] dataclass testing and integration
+- [ ] abstractclassvar: strictness for class variables
+- [ ] Package for pypi
