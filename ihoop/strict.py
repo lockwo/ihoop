@@ -5,7 +5,7 @@ from typing import Annotated, Any, FrozenSet, get_args, get_origin, Set, TypeVar
 
 
 _T = TypeVar("_T")
-_ABSTRACT_ATTRIBUTE_MARKER = "_AbstractAttributeMarker_Strict"
+_ABSTRACT_ATTRIBUTE_MARKER: str = "_AbstractAttributeMarker_Strict"
 
 # TODO: abstractclassvar
 AbstractAttribute = Annotated[_T, _ABSTRACT_ATTRIBUTE_MARKER]
@@ -40,7 +40,7 @@ class _StrictMeta(abc.ABCMeta):
         # just check the initial letter as keyword, that way we can have multiple
         # Strict classes that could resolve metaclass conflicts
         is_defining_strict_itself = (
-            name[:6] == "Strict" and namespace.get("__module__") == mcs.__module__
+            name == "Strict" and namespace.get("__module__") == mcs.__module__
         )
 
         if not is_defining_strict_itself:
