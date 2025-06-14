@@ -140,7 +140,7 @@ class _StrictMeta(abc.ABCMeta):
                     ):
                         base_impl_func = base_meth
                         if hasattr(base_meth, "__func__"):
-                            base_impl_func = base_meth.__func__
+                            base_impl_func = base_meth.__func__  # type: ignore
                         if meth_obj is not base_impl_func:
                             is_originally_abstract = False
                             for super_base in inspect.getmro(base):
