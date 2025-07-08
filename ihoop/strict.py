@@ -37,10 +37,10 @@ class _StrictMeta(abc.ABCMeta):
         """
         Runs when a class inheriting from Strict is defined.
         """
-        # just check the initial letter as keyword, that way we can have multiple
+        # just check the initial letters as keyword, that way we can have multiple
         # Strict classes that could resolve metaclass conflicts
         is_defining_strict_itself = (
-            name == "Strict" and namespace.get("__module__") == mcs.__module__
+            name[:6] == "Strict" and namespace.get("__module__") == mcs.__module__
         )
 
         if not is_defining_strict_itself:
