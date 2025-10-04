@@ -45,5 +45,6 @@ AttributeError: Cannot set attribute 'name' on frozen instance of Dog. strict ob
 ## Roadmap
 
 - [x] dataclass testing and integration
-- [ ] abstractclassvar: strictness for class variables
-- [ ] Package for pypi
+- [x] abstractclassvar: strictness for class variables
+- [x] Package for pypi
+- [ ] ?
