@@ -1,1 +1,5 @@
-from .strict import AbstractAttribute as AbstractAttribute, Strict as Strict
+from .strict import (
+    AbstractAttribute as AbstractAttribute,
+    AbstractClassVar as AbstractClassVar,
+    Strict as Strict,
+)

@@ -9,7 +9,8 @@ Meet `ihoop`: a tiny library that turns plain Python classes into frozen, Abstra
 - Abstract or Final:
   - Abstract classes: can be subclassed, but cannot be instantiated.  
   - Concrete classes: can be instantiated, but cannot be subclassed.  
--Abstract attributes, not just methods: Declare with `AbstractAttribute[T]`; subclasses must supply (via type hints) a real value.
+- Abstract attributes, not just methods: Declare with `AbstractAttribute[T]`; subclasses must supply (via type hints) a real value.
+- Abstract class variables: Declare with `AbstractClassVar[T]`; subclasses must supply a value, which becomes immutable.
 - No dependencies: pure Python.
 
 
@@ -20,22 +21,28 @@ Why is it called `ihoop`? Because (i) (h)ate (o)bject (o)riented (p)rogramming ð
 ## Example
 
 ```python
-from ihoop import Strict, AbstractAttribute
+from ihoop import Strict, AbstractAttribute, AbstractClassVar
 
 class AbstractAnimal(Strict):
     name: AbstractAttribute[str]
+    species: AbstractClassVar[str]
 
 class Dog(AbstractAnimal):
     name: str
+    species = "Canis familiaris"
 
     def __init__(self, name: str):
         self.name = name
 
 >>> Dog("Fido").name
 'Fido'
+>>> Dog.species
+'Canis familiaris'
 >>> d = Dog("Rex")
->>> d.name = "Max"
+>>> d.name = "Max"  # Instance attributes are immutable
 AttributeError: Cannot set attribute 'name' on frozen instance of Dog. strict objects are immutable after initialization.
+>>> Dog.species = "Something else"  # Class variables are also immutable once resolved
+AttributeError: Cannot set frozen class variable 'species' on class 'Dog'. Class variables resolved from abstract requirements are immutable.
 ```
 
 ## Sharp Edges
@@ -45,5 +52,6 @@ AttributeError: Cannot set attribute 'name' on frozen instance of Dog. strict ob
 ## Roadmap
 
 - [x] dataclass testing and integration
-- [ ] abstractclassvar: strictness for class variables
-- [ ] Package for pypi
+- [x] abstractclassvar: strictness for class variables
+- [x] Package for pypi
+- [ ] ?

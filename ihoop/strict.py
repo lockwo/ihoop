@@ -1,14 +1,32 @@
 import abc
 import inspect
 import types
-from typing import Annotated, Any, FrozenSet, get_args, get_origin, Set, TypeVar
+from typing import (
+    Annotated,
+    Any,
+    ClassVar,
+    FrozenSet,
+    get_args,
+    get_origin,
+    Set,
+    TypeVar,
+)
 
 
 _T = TypeVar("_T")
 _ABSTRACT_ATTRIBUTE_MARKER: str = "_AbstractAttributeMarker_Strict"
+_ABSTRACT_CLASSVAR_MARKER: str = "_AbstractClassVarMarker_Strict"
 
-# TODO: abstractclassvar
 AbstractAttribute = Annotated[_T, _ABSTRACT_ATTRIBUTE_MARKER]
+
+
+class _AbstractClassVarMeta(type):
+    def __getitem__(cls, item: Any) -> Any:
+        return Annotated[ClassVar[item], _ABSTRACT_CLASSVAR_MARKER]
+
+
+class AbstractClassVar(metaclass=_AbstractClassVarMeta):
+    __slots__ = ()
 
 
 def _is_strict_subclass(cls: type) -> bool:
@@ -23,8 +41,19 @@ def _is_abstract_attribute_annotation(annotation: Any) -> bool:
     )
 
 
+def _is_abstract_classvar_annotation(annotation: Any) -> bool:
+    if get_origin(annotation) is not Annotated:
+        return False
+    args = get_args(annotation)
+    if len(args) != 2 or args[1] != _ABSTRACT_CLASSVAR_MARKER:
+        return False
+    return get_origin(args[0]) is ClassVar
+
+
 class _StrictMeta(abc.ABCMeta):
     _strict_abstract_attributes_: FrozenSet
+    _strict_abstract_classvars_: FrozenSet
+    _strict_final_classvars_: FrozenSet
     _strict_is_abstract_: bool
 
     def __new__(
@@ -48,10 +77,18 @@ class _StrictMeta(abc.ABCMeta):
                 raise TypeError("Classes using _StrictMeta must inherit from Strict.")
 
         abstract_attributes: Set[str] = set()
+        abstract_classvars: Set[str] = set()
+        inherited_resolved_classvars: Set[str] = set()
         for base in bases:
             if hasattr(base, "_strict_abstract_attributes_"):
                 abstract_attributes.update(
                     getattr(base, "_strict_abstract_attributes_")
+                )
+            if hasattr(base, "_strict_abstract_classvars_"):
+                abstract_classvars.update(getattr(base, "_strict_abstract_classvars_"))
+            if hasattr(base, "_strict_final_classvars_"):
+                inherited_resolved_classvars.update(
+                    getattr(base, "_strict_final_classvars_")
                 )
 
         # Scan local annotations for new or resolved abstract attributes
@@ -66,10 +103,24 @@ class _StrictMeta(abc.ABCMeta):
                         "with a value."
                     )
                 abstract_attributes.add(attr_name)
+            elif _is_abstract_classvar_annotation(annotation):
+                # Check if it's defined with a value,
+                # abstract classvars shouldn't have values in abstract declaration
+                if attr_name in namespace:
+                    raise TypeError(
+                        f"Abstract class variable '{name}.{attr_name}' cannot be "
+                        "defined with a value."
+                    )
+                abstract_classvars.add(attr_name)
             else:
+                # Non-abstract annotations
                 abstract_attributes.discard(attr_name)
+                # For classvars, annotation-only is not enough to resolve them
+                # Only a value assignment will resolve them (handled below)
 
         # Class or instance attributes defined directly also resolve abstract attributes
+        # Track resolved classvars for freezing later
+        resolved_classvars_here = set()
         for attr_name in namespace:
             if (
                 not isinstance(namespace[attr_name], types.FunctionType)
@@ -77,17 +128,29 @@ class _StrictMeta(abc.ABCMeta):
                 and not attr_name.startswith("__")
             ):
                 abstract_attributes.discard(attr_name)
+                if attr_name in abstract_classvars:
+                    abstract_classvars.discard(attr_name)
+                    resolved_classvars_here.add(attr_name)
 
         # Determine if the class being defined is abstract
         # Abstract methods are handled by super().__new__
         # creating cls.__abstractmethods__
         current_abstract_attributes = frozenset(abstract_attributes)
+        current_abstract_classvars = frozenset(abstract_classvars)
 
         cls = super().__new__(mcs, name, bases, namespace, **kwargs)
 
         cls._strict_abstract_attributes_ = current_abstract_attributes
+        cls._strict_abstract_classvars_ = current_abstract_classvars
+        cls._strict_final_classvars_ = frozenset(
+            resolved_classvars_here | inherited_resolved_classvars
+        )
         cls._strict_is_abstract_ = (
-            bool(cls.__abstractmethods__ or cls._strict_abstract_attributes_)
+            bool(
+                cls.__abstractmethods__
+                or cls._strict_abstract_attributes_
+                or cls._strict_abstract_classvars_
+            )
             or is_defining_strict_itself
         )
 
@@ -100,10 +163,12 @@ class _StrictMeta(abc.ABCMeta):
             if not has_abstract_name:
                 abs_methods = list(cls.__abstractmethods__)
                 abs_attrs = list(cls._strict_abstract_attributes_)
+                abs_classvars = list(cls._strict_abstract_classvars_)
                 raise TypeError(
                     f"Abstract class '{cls.__module__}.{name}' must have a name "
                     "starting with 'Abstract' or '_Abstract'. Abstract elements:"
-                    f" methods={abs_methods}, attributes={abs_attrs}"
+                    f" methods={abs_methods}, attributes={abs_attrs}, "
+                    f"classvars={abs_classvars}"
                 )
         else:  # Concrete class
             if has_abstract_name:
@@ -164,6 +229,49 @@ class _StrictMeta(abc.ABCMeta):
                                 )
         return cls
 
+    def __setattr__(cls, name: str, value: Any) -> None:
+        """
+        Prevent modification of resolved class variables on concrete classes.
+        """
+        # Allow setting internal bookkeeping attributes
+        if name in (
+            "_strict_abstract_attributes_",
+            "_strict_abstract_classvars_",
+            "_strict_is_abstract_",
+            "_strict_final_classvars_",
+        ):
+            super().__setattr__(name, value)
+            return
+
+        # If the class has frozen classvars and this is one of them, no modification
+        if (
+            hasattr(cls, "_strict_final_classvars_")
+            and name in cls._strict_final_classvars_
+        ):
+            raise AttributeError(
+                f"Cannot set frozen class variable '{name}' on class '{cls.__name__}'"
+                ". Class variables resolved from abstract requirements are immutable."
+            )
+
+        super().__setattr__(name, value)
+
+    def __delattr__(cls, name: str) -> None:
+        """
+        Prevent deletion of resolved class variables on concrete classes.
+        """
+        # Prevent deletion of frozen classvars
+        if (
+            hasattr(cls, "_strict_final_classvars_")
+            and name in cls._strict_final_classvars_
+        ):
+            raise AttributeError(
+                f"Cannot delete frozen class variable '{name}' on class "
+                f"'{cls.__name__}'. Class variables resolved from abstract "
+                "requirements are immutable."
+            )
+
+        super().__delattr__(name)
+
     def __call__(cls, *args: Any, **kwargs: Any) -> Any:
         """
         Runs when an instance of an strict class is created
@@ -171,9 +279,11 @@ class _StrictMeta(abc.ABCMeta):
         if getattr(cls, "_strict_is_abstract_", False):
             abs_methods = list(cls.__abstractmethods__)
             abs_attrs = list(getattr(cls, "_strict_abstract_attributes_", set()))
+            abs_classvars = list(getattr(cls, "_strict_abstract_classvars_", set()))
             raise TypeError(
                 f"Cannot instantiate abstract class {cls.__name__}. "
-                f"Abstract elements: methods={abs_methods}, attributes={abs_attrs}"
+                f"Abstract elements: methods={abs_methods}, attributes={abs_attrs}, "
+                f"classvars={abs_classvars}"
             )
 
         instance = super().__call__(*args, **kwargs)
