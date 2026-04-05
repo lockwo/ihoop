@@ -197,7 +197,13 @@ class _StrictMeta(abc.ABCMeta):
 
                 # Only check functions defined directly in this class
                 if isinstance(meth_obj, types.FunctionType):
-                    base_meth = getattr(base, meth_name, None)
+                    # Look up via __dict__ in the MRO chain
+                    # to avoid finding metaclass methods (e.g. __call__)
+                    base_meth = None
+                    for mro_cls in inspect.getmro(base):
+                        if meth_name in mro_cls.__dict__:
+                            base_meth = mro_cls.__dict__[meth_name]
+                            break
                     if (
                         base_meth
                         and callable(base_meth)
