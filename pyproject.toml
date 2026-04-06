@@ -1,6 +1,6 @@
 [project]
 name = "ihoop"
-version = "0.1.1"
+version = "0.1.2"
 description = "Abstract/Final Patterns in Python"
 readme = "README.md"
 requires-python = ">=3.9" # todo: check versions
