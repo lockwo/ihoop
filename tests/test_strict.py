@@ -86,7 +86,6 @@ class TestStrict(unittest.TestCase):
             class AbstractBad(Strict):
                 attr: AbstractAttribute[int] = 1
 
-
     def test_metaclass_methods_not_treated_as_class_methods(self):
         """Methods on the metaclass (e.g. __call__) should not block
         subclasses from defining the same dunder as an abstract method."""

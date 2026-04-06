@@ -12,7 +12,6 @@ from typing import (
     TypeVar,
 )
 
-
 _T = TypeVar("_T")
 _ABSTRACT_ATTRIBUTE_MARKER: str = "_AbstractAttributeMarker_Strict"
 _ABSTRACT_CLASSVAR_MARKER: str = "_AbstractClassVarMarker_Strict"
