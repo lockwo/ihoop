@@ -20,4 +20,4 @@ repos:
     hooks:
     - id: pyright
       exclude: ^tests/
-      additional_dependencies: ["pytest"]
+      additional_dependencies: ["pytest", "equinox>=0.13.0"]
