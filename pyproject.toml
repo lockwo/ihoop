@@ -1,6 +1,6 @@
 [project]
 name = "ihoop"
-version = "0.1.2"
+version = "0.1.3"
 description = "Abstract/Final Patterns in Python"
 readme = "README.md"
 requires-python = ">=3.9" # todo: check versions
@@ -23,6 +23,9 @@ requires = ["setuptools >= 61.0"]
 build-backend = "setuptools.build_meta"
 
 [project.optional-dependencies]
+equinox = [
+    "equinox>=0.13.0"
+]
 examples = [
     "equinox>=0.13.0"
 ]
@@ -30,6 +33,7 @@ testing = [
     "pytest>=7.4.0",
     "nbmake>=1.5.0",
     "pyright==1.1.408",
+    "equinox>=0.13.0",
 ]
 
 [tool.setuptools]

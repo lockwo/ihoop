@@ -46,6 +46,23 @@ class TestStrict(unittest.TestCase):
                 def __init__(self, v: int):
                     self.value = v
 
+    def test_abstract_marker_base_without_abstract_members(self):
+        """An Abstract*-named class with no abstract members anywhere is
+        treated as an abstract base: not instantiable, but subclassable."""
+
+        class AbstractMarker(Strict):
+            pass
+
+        with self.assertRaises(TypeError):
+            AbstractMarker()
+
+        class Final(AbstractMarker):
+            def __init__(self, v: int):
+                self.value = v
+
+        f = Final(7)
+        self.assertEqual(f.value, 7)
+
     def test_concrete_subclassing_forbidden(self):
         class AbstractBase(Strict):
             value: AbstractAttribute[int]
