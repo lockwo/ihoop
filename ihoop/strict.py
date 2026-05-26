@@ -139,17 +139,32 @@ class _StrictMeta(abc.ABCMeta):
 
         cls = super().__new__(mcs, name, bases, namespace, **kwargs)
 
+        has_abstract_name = name.startswith("Abstract") or name.startswith("_Abstract")
+
+        # A base contributes abstract members if it carries any abstract methods,
+        # attributes, or classvars.
+        base_had_abstract_members = any(
+            bool(
+                getattr(b, "__abstractmethods__", None)
+                or getattr(b, "_strict_abstract_attributes_", None)
+                or getattr(b, "_strict_abstract_classvars_", None)
+            )
+            for b in bases
+        )
+
         cls._strict_abstract_attributes_ = current_abstract_attributes
         cls._strict_abstract_classvars_ = current_abstract_classvars
         cls._strict_final_classvars_ = frozenset(
             resolved_classvars_here | inherited_resolved_classvars
         )
+        has_remaining_abstracts = bool(
+            cls.__abstractmethods__
+            or cls._strict_abstract_attributes_
+            or cls._strict_abstract_classvars_
+        )
         cls._strict_is_abstract_ = (
-            bool(
-                cls.__abstractmethods__
-                or cls._strict_abstract_attributes_
-                or cls._strict_abstract_classvars_
-            )
+            has_remaining_abstracts
+            or (has_abstract_name and not base_had_abstract_members)
             or is_defining_strict_itself
         )
 
@@ -157,24 +172,26 @@ class _StrictMeta(abc.ABCMeta):
         if is_defining_strict_itself:
             return cls
 
-        has_abstract_name = name.startswith("Abstract") or name.startswith("_Abstract")
-        if cls._strict_is_abstract_:
-            if not has_abstract_name:
-                abs_methods = list(cls.__abstractmethods__)
-                abs_attrs = list(cls._strict_abstract_attributes_)
-                abs_classvars = list(cls._strict_abstract_classvars_)
-                raise TypeError(
-                    f"Abstract class '{cls.__module__}.{name}' must have a name "
-                    "starting with 'Abstract' or '_Abstract'. Abstract elements:"
-                    f" methods={abs_methods}, attributes={abs_attrs}, "
-                    f"classvars={abs_classvars}"
-                )
-        else:  # Concrete class
-            if has_abstract_name:
-                raise TypeError(
-                    f"Concrete (final) class '{cls.__module__}.{name}' must not "
-                    "have a name starting with 'Abstract' or '_Abstract'."
-                )
+        if has_remaining_abstracts and not has_abstract_name:
+            abs_methods = list(cls.__abstractmethods__)
+            abs_attrs = list(cls._strict_abstract_attributes_)
+            abs_classvars = list(cls._strict_abstract_classvars_)
+            raise TypeError(
+                f"Class '{cls.__module__}.{name}' has abstract elements but its "
+                "name does not start with 'Abstract' or '_Abstract'. Abstract "
+                f"elements: methods={abs_methods}, attributes={abs_attrs}, "
+                f"classvars={abs_classvars}"
+            )
+
+        if (
+            has_abstract_name
+            and not has_remaining_abstracts
+            and base_had_abstract_members
+        ):
+            raise TypeError(
+                f"Concrete (final) class '{cls.__module__}.{name}' must not "
+                "have a name starting with 'Abstract' or '_Abstract'."
+            )
 
         for base in bases:
             if not _is_strict_subclass(base):

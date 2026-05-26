@@ -44,8 +44,8 @@ class TestAbstractClassVar(unittest.TestCase):
         # Without a value, it remains abstract
         with self.assertRaisesRegex(
             TypeError,
-            r"Abstract class '.*\.AlmostConcrete' must have a name "
-            "starting with 'Abstract'",
+            r"Class '.*\.AlmostConcrete' has abstract elements but its name "
+            r"does not start with 'Abstract'",
         ):
 
             class AlmostConcrete(AbstractBase):
@@ -88,8 +88,8 @@ class TestAbstractClassVar(unittest.TestCase):
         # Partial resolution still abstract
         with self.assertRaisesRegex(
             TypeError,
-            r"Abstract class '.*\.PartialConfig' must have a name starting with "
-            "'Abstract'",
+            r"Class '.*\.PartialConfig' has abstract elements but its name "
+            r"does not start with 'Abstract'",
         ):
 
             class PartialConfig(AbstractConfig):
@@ -158,7 +158,8 @@ class TestAbstractClassVar(unittest.TestCase):
 
         with self.assertRaisesRegex(
             TypeError,
-            r"Abstract class '.*\.BadName' must have a name starting with 'Abstract'",
+            r"Class '.*\.BadName' has abstract elements but its name does not "
+            r"start with 'Abstract'",
         ):
 
             class BadName(Strict):
