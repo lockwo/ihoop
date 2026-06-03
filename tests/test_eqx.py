@@ -1,5 +1,8 @@
 from abc import abstractmethod
+from typing import ClassVar
 from unittest import TestCase
+
+import equinox as eqx
 
 from ihoop.eqx import AbstractStrictModule
 
@@ -53,3 +56,74 @@ class TestEqxIntegration(TestCase):
                 return 1
 
         self.assertFalse(hasattr(Foo, "_strict_base_"))
+
+
+class TestEqxAbstractVarStrictness(TestCase):
+
+    def test_abstractvar_only_module_is_abstract(self):
+        class AbstractHolder(AbstractStrictModule):
+            x: eqx.AbstractVar[int]
+
+            def doubled(self) -> int:
+                return self.x * 2
+
+        with self.assertRaises(TypeError):
+            AbstractHolder()
+
+    def test_field_resolves_abstractvar(self):
+        class AbstractHolder(AbstractStrictModule):
+            x: eqx.AbstractVar[int]
+
+            def doubled(self) -> int:
+                return self.x * 2
+
+        class Holder(AbstractHolder):
+            x: int
+
+        self.assertEqual(Holder(3).doubled(), 6)
+
+    def test_property_resolves_abstractvar(self):
+        class AbstractHolder(AbstractStrictModule):
+            x: eqx.AbstractVar[int]
+
+        class Holder(AbstractHolder):
+            @property
+            def x(self) -> int:
+                return 7
+
+        self.assertEqual(Holder().x, 7)
+
+    def test_method_complete_intermediate_stays_abstract(self):
+        class AbstractBase(AbstractStrictModule):
+            x: eqx.AbstractVar[int]
+
+            @abstractmethod
+            def f(self) -> int:
+                raise NotImplementedError
+
+        class AbstractMid(AbstractBase):
+            def f(self) -> int:
+                return self.x
+
+        with self.assertRaises(TypeError):
+            AbstractMid()
+
+        class Final(AbstractMid):
+            x: int
+
+        self.assertEqual(Final(5).f(), 5)
+
+    def test_unresolved_abstractvar_on_concrete_name_is_rejected(self):
+        with self.assertRaises(TypeError):
+
+            class Holder(AbstractStrictModule):  # noqa: F841
+                x: eqx.AbstractVar[int]
+
+    def test_abstractclassvar_counts_and_resolves(self):
+        class AbstractHolder(AbstractStrictModule):
+            y: eqx.AbstractClassVar[int]
+
+        class Holder(AbstractHolder):
+            y: ClassVar[int] = 3
+
+        self.assertEqual(Holder.y, 3)
