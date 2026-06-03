@@ -52,8 +52,14 @@ def _is_abstract_classvar_annotation(annotation: Any) -> bool:
 class _StrictMeta(abc.ABCMeta):
     _strict_abstract_attributes_: FrozenSet
     _strict_abstract_classvars_: FrozenSet
+    _strict_extra_abstract_attributes_: FrozenSet
+    _strict_extra_abstract_classvars_: FrozenSet
     _strict_final_classvars_: FrozenSet
     _strict_is_abstract_: bool
+
+    @staticmethod
+    def _strict_extra_abstracts(cls: type) -> tuple[FrozenSet, FrozenSet]:
+        return frozenset(), frozenset()
 
     def __new__(
         mcs,
@@ -139,6 +145,11 @@ class _StrictMeta(abc.ABCMeta):
 
         cls = super().__new__(mcs, name, bases, namespace, **kwargs)
 
+        # Abstract members only observable on the built class (eqx.AbstractVar).
+        extra_abstract_attributes, extra_abstract_classvars = (
+            mcs._strict_extra_abstracts(cls)
+        )
+
         has_abstract_name = name.startswith("Abstract") or name.startswith("_Abstract")
 
         # A base contributes abstract members if it carries any abstract methods,
@@ -148,12 +159,16 @@ class _StrictMeta(abc.ABCMeta):
                 getattr(b, "__abstractmethods__", None)
                 or getattr(b, "_strict_abstract_attributes_", None)
                 or getattr(b, "_strict_abstract_classvars_", None)
+                or getattr(b, "_strict_extra_abstract_attributes_", None)
+                or getattr(b, "_strict_extra_abstract_classvars_", None)
             )
             for b in bases
         )
 
         cls._strict_abstract_attributes_ = current_abstract_attributes
         cls._strict_abstract_classvars_ = current_abstract_classvars
+        cls._strict_extra_abstract_attributes_ = extra_abstract_attributes
+        cls._strict_extra_abstract_classvars_ = extra_abstract_classvars
         cls._strict_final_classvars_ = frozenset(
             resolved_classvars_here | inherited_resolved_classvars
         )
@@ -161,6 +176,8 @@ class _StrictMeta(abc.ABCMeta):
             cls.__abstractmethods__
             or cls._strict_abstract_attributes_
             or cls._strict_abstract_classvars_
+            or cls._strict_extra_abstract_attributes_
+            or cls._strict_extra_abstract_classvars_
         )
         cls._strict_is_abstract_ = (
             has_remaining_abstracts
@@ -174,8 +191,13 @@ class _StrictMeta(abc.ABCMeta):
 
         if has_remaining_abstracts and not has_abstract_name:
             abs_methods = list(cls.__abstractmethods__)
-            abs_attrs = list(cls._strict_abstract_attributes_)
-            abs_classvars = list(cls._strict_abstract_classvars_)
+            abs_attrs = list(
+                cls._strict_abstract_attributes_
+                | cls._strict_extra_abstract_attributes_
+            )
+            abs_classvars = list(
+                cls._strict_abstract_classvars_ | cls._strict_extra_abstract_classvars_
+            )
             raise TypeError(
                 f"Class '{cls.__module__}.{name}' has abstract elements but its "
                 "name does not start with 'Abstract' or '_Abstract'. Abstract "
@@ -259,6 +281,8 @@ class _StrictMeta(abc.ABCMeta):
         if name in (
             "_strict_abstract_attributes_",
             "_strict_abstract_classvars_",
+            "_strict_extra_abstract_attributes_",
+            "_strict_extra_abstract_classvars_",
             "_strict_is_abstract_",
             "_strict_final_classvars_",
         ):
@@ -300,8 +324,14 @@ class _StrictMeta(abc.ABCMeta):
         """
         if getattr(cls, "_strict_is_abstract_", False):
             abs_methods = list(cls.__abstractmethods__)
-            abs_attrs = list(getattr(cls, "_strict_abstract_attributes_", set()))
-            abs_classvars = list(getattr(cls, "_strict_abstract_classvars_", set()))
+            abs_attrs = list(
+                getattr(cls, "_strict_abstract_attributes_", set())
+                | getattr(cls, "_strict_extra_abstract_attributes_", set())
+            )
+            abs_classvars = list(
+                getattr(cls, "_strict_abstract_classvars_", set())
+                | getattr(cls, "_strict_extra_abstract_classvars_", set())
+            )
             raise TypeError(
                 f"Cannot instantiate abstract class {cls.__name__}. "
                 f"Abstract elements: methods={abs_methods}, attributes={abs_attrs}, "
